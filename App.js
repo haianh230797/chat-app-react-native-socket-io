@@ -1,5 +1,5 @@
 import React, {useState, useCallback, useEffect} from 'react';
-import {StyleSheet} from 'react-native';
+import {StyleSheet, TextInput} from 'react-native';
 import {
   GiftedChat,
   Actions,
@@ -14,11 +14,11 @@ import ImagePicker from 'react-native-image-picker';
 const App = () => {
   const [listChat, setListChat] = useState([
     {
-      _id: 1,
+      _id: 2,
       text: 'Hello developer',
       createdAt: new Date(),
       user: {
-        _id: 2,
+        _id: 1,
         name: 'React Native',
         avatar: 'https://placeimg.com/140/140/any',
       },
@@ -28,8 +28,11 @@ const App = () => {
   ]);
 
   const [text, setText] = useState('');
-
-  let socket = io('http://10.10.10.53:3000');
+  const [name, setName] = useState('');
+  useEffect(() => {
+    setName(Math.random() * 100);
+  }, []);
+  let socket = io('http://10.10.10.78:3000');
 
   const options = {
     title: 'Select Avatar',
@@ -52,10 +55,13 @@ const App = () => {
 
   const onSend = useCallback(
     (messages = []) => {
+      messages[0].user._id = name;
+      messages[0].user.name = name;
+      messages[0].user.avatar = 'https://placeimg.com/140/140/any';
       socket.emit('chat message', messages);
       setListChat(GiftedChat.append(listChat, messages));
     },
-    [listChat, socket],
+    [listChat, name, socket],
   );
   const renderInputToolbar = (props) => (
     <InputToolbar
@@ -75,16 +81,18 @@ const App = () => {
         console.log('User tapped custom button: ', response.customButton);
       } else {
         const source = {uri: 'data:image/png;base64,' + response.data};
-        let messContent = {
-          _id: Math.random() * 10000000000000000000000000000000,
-          createdAt: new Date(),
-          user: {
-            _id: 1,
-            name: 'React Native',
-            avatar: 'https://placeimg.com/140/140/any',
+        let messContent = [
+          {
+            _id: Math.random() * 10000000000000000000000000000000,
+            createdAt: new Date(),
+            user: {
+              _id: name,
+              name: name,
+              avatar: 'https://placeimg.com/140/140/any',
+            },
+            image: source.uri,
           },
-          image: source.uri,
-        };
+        ];
         socket.emit('chat message', messContent);
         setListChat(GiftedChat.append(listChat, messContent));
       }
@@ -131,12 +139,16 @@ const App = () => {
       text={text}
       onInputTextChanged={setText}
       user={{
-        _id: 1,
+        _id: name,
+        name: name,
+        avatar:
+          'https://steamcdn-a.akamaihd.net/steamcommunity/public/images/avatars/00/0099abd07f1b902116d31787057581546314475c_full.jpg',
       }}
       renderInputToolbar={renderInputToolbar}
       renderActions={renderActions}
       renderComposer={renderComposer}
       renderSend={renderSend}
+      renderAvatarOnTop={true}
     />
   );
 };
@@ -151,7 +163,7 @@ const styles = StyleSheet.create({
     marginRight: 4,
     marginBottom: 0,
   },
-  caontainerToolbar: {
+  containerToolbar: {
     backgroundColor: '#222B45',
     paddingTop: 6,
   },
