@@ -29,6 +29,8 @@ const App = () => {
 
   const [text, setText] = useState('');
   const [name, setName] = useState('');
+  const [isTyping, setIsTyping] = useState(false);
+
   useEffect(() => {
     setName(Math.random() * 100);
   }, []);
@@ -52,6 +54,10 @@ const App = () => {
       setListChat([...msg, ...listChat]);
     });
   }, [listChat, socket]);
+  useEffect(() => {
+    text.length !== 0 ? setIsTyping(true) : setIsTyping(false);
+    socket.emit('is typing', isTyping);
+  }, [isTyping, socket, text.length]);
 
   const onSend = useCallback(
     (messages = []) => {
@@ -149,6 +155,7 @@ const App = () => {
       renderComposer={renderComposer}
       renderSend={renderSend}
       renderAvatarOnTop={true}
+      isTyping={true}
     />
   );
 };
