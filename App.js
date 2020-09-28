@@ -11,6 +11,8 @@ import {Icon} from 'native-base';
 import io from 'socket.io-client';
 import ImagePicker from 'react-native-image-picker';
 
+let socket = io('http://192.168.99.1:3000');
+
 const App = () => {
   const [listChat, setListChat] = useState([
     {
@@ -29,11 +31,9 @@ const App = () => {
 
   const [text, setText] = useState('');
   const [name, setName] = useState('');
-  useEffect(() => {
-    setName(Math.random() * 100);
-  }, []);
-  let socket = io('http://10.10.10.78:3000');
-
+  if (!name) {
+    setName(Math.random())
+  }
   const options = {
     title: 'Select Avatar',
     customButtons: [{name: 'fb', title: 'Choose Photo from Facebook'}],
