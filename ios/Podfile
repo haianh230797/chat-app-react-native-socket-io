@@ -12,6 +12,8 @@ target 'chatClient' do
 
   pod 'RNFS', :path => '../node_modules/react-native-fs'
 
+  pod 'react-native-video', :path => '../node_modules/react-native-video'
+
   target 'chatClientTests' do
     inherit! :complete
     # Pods for testing

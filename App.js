@@ -1,5 +1,6 @@
+/* eslint-disable prettier/prettier */
 import React, {useState, useCallback, useEffect} from 'react';
-import {StyleSheet, TextInput} from 'react-native';
+import {StyleSheet, View} from 'react-native';
 import {
   GiftedChat,
   Actions,
@@ -10,13 +11,14 @@ import {
 import {Icon} from 'native-base';
 import io from 'socket.io-client';
 import ImagePicker from 'react-native-image-picker';
+import Video from 'react-native-video';
 
-let socket = io('http://192.168.99.1:3000');
+let socket = io('http://10.10.10.107:3000');
 
 const App = () => {
   const [listChat, setListChat] = useState([
     {
-      _id: 2,
+      _id: 1441542,
       text: 'Hello developer',
       createdAt: new Date(),
       user: {
@@ -27,12 +29,25 @@ const App = () => {
       image:
         'https://i.picsum.photos/id/866/200/300.jpg?hmac=rcadCENKh4rD6MAp6V_ma-AyWv641M4iiOpe1RyFHeI',
     },
+    {
+      _id: 245213414,
+      text: 'Hello developer',
+      createdAt: new Date(),
+      user: {
+        _id: 1,
+        name: 'React Native',
+        avatar: 'https://placeimg.com/140/140/any',
+      },
+      video:
+        'http://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ElephantsDream.mp4',
+    },
   ]);
 
   const [text, setText] = useState('');
   const [name, setName] = useState('');
+  const [videoSrc, setVideoSrc] = useState('');
   if (!name) {
-    setName(Math.random())
+    setName(Math.random());
   }
   const options = {
     title: 'Select Avatar',
@@ -41,6 +56,8 @@ const App = () => {
       skipBackup: true,
       path: 'images',
     },
+    mediaType: 'mixed',
+    videoQuality: 'low',
   };
 
   useEffect(() => {
@@ -51,7 +68,7 @@ const App = () => {
     socket.on('chat message', (msg) => {
       setListChat([...msg, ...listChat]);
     });
-  }, [listChat, socket]);
+  }, [listChat]);
 
   const onSend = useCallback(
     (messages = []) => {
@@ -61,7 +78,7 @@ const App = () => {
       socket.emit('chat message', messages);
       setListChat(GiftedChat.append(listChat, messages));
     },
-    [listChat, name, socket],
+    [listChat, name],
   );
   const renderInputToolbar = (props) => (
     <InputToolbar
@@ -80,21 +97,48 @@ const App = () => {
       } else if (response.customButton) {
         console.log('User tapped custom button: ', response.customButton);
       } else {
-        const source = {uri: 'data:image/png;base64,' + response.data};
-        let messContent = [
-          {
-            _id: Math.random() * 10000000000000000000000000000000,
-            createdAt: new Date(),
-            user: {
-              _id: name,
-              name: name,
-              avatar: 'https://placeimg.com/140/140/any',
+        const sourceImg = {uri: 'data:image/png;base64,' + response.data};
+        const sourceVid = {uri: 'data:video/mp4;base64,' + response.data};
+        if (response.type === 'image/jpeg') {
+          let messContent = [
+            {
+              _id: Math.random() * 10000000000000000000000000000000,
+              createdAt: new Date(),
+              user: {
+                _id: name,
+                name: name,
+                avatar: 'https://placeimg.com/140/140/any',
+              },
+              image: sourceImg.uri,
             },
-            image: source.uri,
-          },
-        ];
-        socket.emit('chat message', messContent);
-        setListChat(GiftedChat.append(listChat, messContent));
+          ];
+          socket.emit('chat message', messContent);
+          setListChat(GiftedChat.append(listChat, messContent));
+        } else if (response.type === 'video/mp4') {
+          const type = 'video/mp4';
+          const formData = new FormData();
+          const uri = sourceVid.uri;
+          formData.append('video', {
+            name: 'mobile-video-upload',
+            type,
+            uri,
+          });
+          fetch('http://10.10.10.107:3000/uploadvideo', {
+            method: 'post',
+            headers: {
+              'Content-Type': 'multipart/form-data',
+              Accept: 'application/json',
+            },
+            body: formData,
+          })
+            .then((res) => res.json())
+            .then((data) => {
+              console.log(data);
+            })
+            .catch((err) => console.log(err));
+        } else {
+          return;
+        }
       }
     });
   };
@@ -119,6 +163,20 @@ const App = () => {
     />
   );
 
+  const renderMessageVideo = (props) => {
+    const {currentMessage} = props;
+    return (
+      <View style={{padding: 5}}>
+        <Video
+          resizeMode="contain"
+          useNativeControls
+          shouldPlay={true}
+          source={{uri: currentMessage.video}}
+          style={{height: 150, width: 200, borderRadius: 10}}
+        />
+      </View>
+    );
+  };
   const renderComposer = (props) => (
     <Composer {...props} textInputStyle={styles.textInputBox} />
   );
@@ -133,23 +191,26 @@ const App = () => {
   );
 
   return (
-    <GiftedChat
-      messages={listChat}
-      onSend={(messages) => onSend(messages)}
-      text={text}
-      onInputTextChanged={setText}
-      user={{
-        _id: name,
-        name: name,
-        avatar:
-          'https://steamcdn-a.akamaihd.net/steamcommunity/public/images/avatars/00/0099abd07f1b902116d31787057581546314475c_full.jpg',
-      }}
-      renderInputToolbar={renderInputToolbar}
-      renderActions={renderActions}
-      renderComposer={renderComposer}
-      renderSend={renderSend}
-      renderAvatarOnTop={true}
-    />
+    <React.Fragment>
+      <GiftedChat
+        messages={listChat}
+        onSend={(messages) => onSend(messages)}
+        text={text}
+        onInputTextChanged={setText}
+        user={{
+          _id: name,
+          name: name,
+          avatar:
+            'https://steamcdn-a.akamaihd.net/steamcommunity/public/images/avatars/00/0099abd07f1b902116d31787057581546314475c_full.jpg',
+        }}
+        renderInputToolbar={renderInputToolbar}
+        renderActions={renderActions}
+        renderComposer={renderComposer}
+        renderSend={renderSend}
+        renderAvatarOnTop={true}
+        renderMessageVideo={renderMessageVideo}
+      />
+    </React.Fragment>
   );
 };
 export default App;
@@ -183,5 +244,19 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     marginHorizontal: 4,
+  },
+  backgroundVideo: {
+    height: 300,
+  },
+  videoBox: {
+    height: 150,
+    width: 250,
+  },
+  videoStyle: {
+    left: 0,
+    top: 0,
+    height: 150,
+    width: 250,
+    borderRadius: 20,
   },
 });
