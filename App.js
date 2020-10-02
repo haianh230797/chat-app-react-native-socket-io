@@ -13,39 +13,13 @@ import io from 'socket.io-client';
 import ImagePicker from 'react-native-image-picker';
 import Video from 'react-native-video';
 
-let socket = io('http://10.10.10.107:3000');
+let socket = io('http://10.10.10.127:3000');
 
 const App = () => {
-  const [listChat, setListChat] = useState([
-    {
-      _id: 1441542,
-      text: 'Hello developer',
-      createdAt: new Date(),
-      user: {
-        _id: 1,
-        name: 'React Native',
-        avatar: 'https://placeimg.com/140/140/any',
-      },
-      image:
-        'https://i.picsum.photos/id/866/200/300.jpg?hmac=rcadCENKh4rD6MAp6V_ma-AyWv641M4iiOpe1RyFHeI',
-    },
-    {
-      _id: 245213414,
-      text: 'Hello developer',
-      createdAt: new Date(),
-      user: {
-        _id: 1,
-        name: 'React Native',
-        avatar: 'https://placeimg.com/140/140/any',
-      },
-      video:
-        'http://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ElephantsDream.mp4',
-    },
-  ]);
+  const [listChat, setListChat] = useState([]);
 
   const [text, setText] = useState('');
   const [name, setName] = useState('');
-  const [videoSrc, setVideoSrc] = useState('');
   if (!name) {
     setName(Math.random());
   }
@@ -59,27 +33,28 @@ const App = () => {
     mediaType: 'mixed',
     videoQuality: 'low',
   };
+  useEffect(() => {
+    socket.emit('callData', '');
+  }, []);
 
   useEffect(() => {
-    onSocket();
-  }, [onSocket]);
-
-  const onSocket = useCallback(() => {
+    socket.on('getData', (msg) => {
+      setListChat(msg);
+    });
+  }, []);
+  useEffect(() => {
     socket.on('chat message', (msg) => {
-      setListChat([...msg, ...listChat]);
+      setListChat([msg[0], ...listChat]);
     });
   }, [listChat]);
 
-  const onSend = useCallback(
-    (messages = []) => {
-      messages[0].user._id = name;
-      messages[0].user.name = name;
-      messages[0].user.avatar = 'https://placeimg.com/140/140/any';
-      socket.emit('chat message', messages);
-      setListChat(GiftedChat.append(listChat, messages));
-    },
-    [listChat, name],
-  );
+  const onSend = (messages) => {
+    messages[0].user._id = name;
+    messages[0].user.name = name;
+    messages[0].user.avatar = 'https://placeimg.com/140/140/any';
+    socket.emit('chat message', messages);
+  };
+
   const renderInputToolbar = (props) => (
     <InputToolbar
       {...props}
@@ -113,7 +88,6 @@ const App = () => {
             },
           ];
           socket.emit('chat message', messContent);
-          setListChat(GiftedChat.append(listChat, messContent));
         } else if (response.type === 'video/mp4') {
           const type = 'video/mp4';
           const formData = new FormData();
@@ -123,19 +97,6 @@ const App = () => {
             type,
             uri,
           });
-          fetch('http://10.10.10.107:3000/uploadvideo', {
-            method: 'post',
-            headers: {
-              'Content-Type': 'multipart/form-data',
-              Accept: 'application/json',
-            },
-            body: formData,
-          })
-            .then((res) => res.json())
-            .then((data) => {
-              console.log(data);
-            })
-            .catch((err) => console.log(err));
         } else {
           return;
         }
@@ -150,7 +111,7 @@ const App = () => {
       icon={() => (
         <Icon name="options" type="SimpleLineIcons" style={{color: 'white'}} />
       )}
-      onSend={(args) => console.log('args' + args)}
+      onSend={(args) => console.log('args')}
       options={{
         'Choose From Library': () => {
           pickImage();
@@ -194,7 +155,7 @@ const App = () => {
     <React.Fragment>
       <GiftedChat
         messages={listChat}
-        onSend={(messages) => onSend(messages)}
+        onSend={onSend}
         text={text}
         onInputTextChanged={setText}
         user={{
