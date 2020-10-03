@@ -1,6 +1,6 @@
 /* eslint-disable prettier/prettier */
 import React, {useState, useCallback, useEffect} from 'react';
-import {StyleSheet, View} from 'react-native';
+import {StyleSheet, View, Text, TouchableOpacity, Image} from 'react-native';
 import {
   GiftedChat,
   Actions,
@@ -12,14 +12,20 @@ import {Icon} from 'native-base';
 import io from 'socket.io-client';
 import ImagePicker from 'react-native-image-picker';
 import Video from 'react-native-video';
+import Fire from './Fire';
+import themeStyle from './styles';
 
 let socket = io('http://10.10.10.127:3000');
 
 const App = () => {
   const [listChat, setListChat] = useState([]);
-
   const [text, setText] = useState('');
   const [name, setName] = useState('');
+  const [typing, setTyping] = useState(false);
+  const [colorBubble, setcolorBubble] = useState({
+    background: '#6195ED',
+    text: 'white',
+  });
   if (!name) {
     setName(Math.random());
   }
@@ -35,18 +41,60 @@ const App = () => {
   };
   useEffect(() => {
     socket.emit('callData', '');
+    return () => {
+      socket.off('callData');
+    };
   }, []);
 
   useEffect(() => {
     socket.on('getData', (msg) => {
       setListChat(msg);
     });
+    return () => {
+      socket.off('getData');
+    };
   }, []);
   useEffect(() => {
     socket.on('chat message', (msg) => {
       setListChat([msg[0], ...listChat]);
     });
+    return () => {
+      socket.off('chat message');
+    };
   }, [listChat]);
+  useEffect(() => {
+    socket.on('chat image', (msg) => {
+      setListChat([msg[0], ...listChat]);
+    });
+    return () => {
+      socket.off('chat image');
+    };
+  }, [listChat]);
+
+  useEffect(() => {
+    if (text !== '') {
+      let Info = {
+        typing: true,
+        user: name,
+      };
+      socket.emit('typing', Info);
+    } else {
+      let Info = {
+        typing: false,
+        user: name,
+      };
+      socket.emit('typing', Info);
+    }
+  }, [name, text]);
+
+  useEffect(() => {
+    socket.on('typing', (msg) => {
+      msg.user !== name ? setTyping(msg.typing) : setTyping(false);
+    });
+    return () => {
+      socket.off('typing');
+    };
+  }, [listChat, name]);
 
   const onSend = (messages) => {
     messages[0].user._id = name;
@@ -54,7 +102,21 @@ const App = () => {
     messages[0].user.avatar = 'https://placeimg.com/140/140/any';
     socket.emit('chat message', messages);
   };
-
+  const sendLike = () => {
+    let messContent = [
+      {
+        _id: Math.random() * 10000000000000000000000000000000,
+        text: '👍',
+        createdAt: new Date(),
+        user: {
+          _id: name,
+          name: name,
+          avatar: 'https://placeimg.com/140/140/any',
+        },
+      },
+    ];
+    socket.emit('chat message', messContent);
+  };
   const renderInputToolbar = (props) => (
     <InputToolbar
       {...props}
@@ -62,70 +124,142 @@ const App = () => {
       primaryStyle={{alignItems: 'center'}}
     />
   );
-
-  const pickImage = () => {
-    ImagePicker.showImagePicker(options, (response) => {
+  const takeImage = () => {
+    ImagePicker.launchCamera(options, (response) => {
       if (response.didCancel) {
         console.log('User cancelled image picker');
       } else if (response.error) {
-        console.log('ImagePicker Error: ', response.error);
+        console.log('ImagePicker Error: ');
       } else if (response.customButton) {
-        console.log('User tapped custom button: ', response.customButton);
+        console.log('User tapped custom button ');
       } else {
-        const sourceImg = {uri: 'data:image/png;base64,' + response.data};
-        const sourceVid = {uri: 'data:video/mp4;base64,' + response.data};
         if (response.type === 'image/jpeg') {
-          let messContent = [
-            {
-              _id: Math.random() * 10000000000000000000000000000000,
-              createdAt: new Date(),
-              user: {
-                _id: name,
-                name: name,
-                avatar: 'https://placeimg.com/140/140/any',
-              },
-              image: sourceImg.uri,
-            },
-          ];
-          socket.emit('chat message', messContent);
+          Fire.shared
+            .uploadPhotoAsync(response.uri)
+            .then((data) => {
+              let messContent = [
+                {
+                  _id: Math.random() * 10000000000000000000000000000000,
+                  createdAt: new Date(),
+                  user: {
+                    _id: name,
+                    name: name,
+                    avatar: 'https://placeimg.com/140/140/any',
+                  },
+                  image: data,
+                },
+              ];
+              socket.emit('chat image', messContent);
+            })
+            .catch((err) => {
+              console.log('err  ',err);
+            });
         } else if (response.type === 'video/mp4') {
-          const type = 'video/mp4';
-          const formData = new FormData();
-          const uri = sourceVid.uri;
-          formData.append('video', {
-            name: 'mobile-video-upload',
-            type,
-            uri,
-          });
+          Fire.shared
+            .uploadPhotoAsync(response.uri)
+            .then((data) => {
+              let messContent = [
+                {
+                  _id: Math.random() * 10000000000000000000000000000000,
+                  createdAt: new Date(),
+                  user: {
+                    _id: name,
+                    name: name,
+                    avatar: 'https://placeimg.com/140/140/any',
+                  },
+                  video: data,
+                },
+              ];
+              socket.emit('chat image', messContent);
+            })
+            .catch((err) => {
+              console.log('err  ',err);
+            });
         } else {
           return;
         }
       }
     });
   };
-
-  const renderActions = (props) => (
-    <Actions
-      {...props}
-      containerStyle={styles.actionContainer}
-      icon={() => (
-        <Icon name="options" type="SimpleLineIcons" style={{color: 'white'}} />
-      )}
-      onSend={(args) => console.log('args')}
-      options={{
-        'Choose From Library': () => {
-          pickImage();
-        },
-        Cancel: () => {
-          console.log('Cancel');
-        },
-      }}
-      optionTintColor="#222B45"
-    />
-  );
+  const pickImage = () => {
+    ImagePicker.launchImageLibrary(options, (response) => {
+      if (response.didCancel) {
+        console.log('User cancelled image picker');
+      } else if (response.error) {
+        console.log('ImagePicker Error: ');
+      } else if (response.customButton) {
+        console.log('User tapped custom button: ');
+      } else {
+        if (response.type === 'image/jpeg') {
+          Fire.shared
+            .uploadPhotoAsync(response.uri)
+            .then((data) => {
+              let messContent = [
+                {
+                  _id: Math.random() * 10000000000000000000000000000000,
+                  createdAt: new Date(),
+                  user: {
+                    _id: name,
+                    name: name,
+                    avatar: 'https://placeimg.com/140/140/any',
+                  },
+                  image: data,
+                },
+              ];
+              socket.emit('chat image', messContent);
+            })
+            .catch((err) => {
+              console.log('err  ',err);
+            });
+        } else if (response.type === 'video/mp4') {
+          Fire.shared
+            .uploadPhotoAsync(response.uri)
+            .then((data) => {
+              let messContent = [
+                {
+                  _id: Math.random() * 10000000000000000000000000000000,
+                  createdAt: new Date(),
+                  user: {
+                    _id: name,
+                    name: name,
+                    avatar: 'https://placeimg.com/140/140/any',
+                  },
+                  video: data,
+                },
+              ];
+              socket.emit('chat image', messContent);
+            })
+            .catch((err) => {
+              console.log('err  ',err);
+            });
+        } else {
+          return;
+        }
+      }
+    });
+  };
+  const ActionItem = ({names, types, funcs}) => {
+    return (
+      <TouchableOpacity onPress={funcs}>
+        <Icon name={names} type={types} style={styles.actionItem} />
+      </TouchableOpacity>
+    );
+  };
+  const renderActions = (props) => {
+    return (
+      <View style={styles.actionBox}>
+        <ActionItem names={'options'} types={'SimpleLineIcons'} />
+        <ActionItem names={'camera'} types={'Entypo'} funcs={takeImage} />
+        <ActionItem
+          names={'picture-o'}
+          types={'FontAwesome'}
+          funcs={pickImage}
+        />
+      </View>
+    );
+  };
 
   const renderMessageVideo = (props) => {
-    const {currentMessage} = props;
     return (
       <View style={{padding: 5}}>
         <Video
@@ -141,23 +275,57 @@ const App = () => {
   const renderComposer = (props) => (
     <Composer {...props} textInputStyle={styles.textInputBox} />
   );
-
-  const renderSend = (props) => (
-    <Send
-      {...props}
-      disabled={!props.text}
-      containerStyle={styles.containerSend}>
-      <Icon name="send" type="Feather" style={{color: 'white'}} />
-    </Send>
-  );
-
+  const renderSend = (props) =>
+    text !== '' ? (
+      <Send
+        containerStyle={styles.containerSend}
+        {...props}
+        disabled={!props.text}>
+        <Icon
+          name="md-send-sharp"
+          type="Ionicons"
+          style={{color: '#646DE8', marginRight: 15, bottom: 8}}
+        />
+      </Send>
+    ) : (
+      <TouchableOpacity
+        onPress={sendLike}
+        containerStyle={styles.containerLike}>
+        <Icon
+          name="like1"
+          type="AntDesign"
+          style={{color: '#646DE8', marginRight: 15}}
+        />
+      </TouchableOpacity>
+    );
+  const renderBubble = (props) => {
+    if (props.currentMessage.user._id === name) {
+      return (
+        <View
+          style={{...styles.bubleBox, backgroundColor: colorBubble.background}}>
+          <Text style={{...styles.bubleContent, color: colorBubble.text}}>
+            {props.currentMessage.text}
+          </Text>
+        </View>
+      );
+    } else {
+      return (
+        <View style={{...styles.bubleBox, backgroundColor: '#DBDEE1'}}>
+          <Text style={{...styles.bubleContent, color: 'black'}}>
+            {props.currentMessage.text}
+          </Text>
+        </View>
+      );
+    }
+  };
+ 
   return (
     <React.Fragment>
       <GiftedChat
         messages={listChat}
         onSend={onSend}
         text={text}
-        onInputTextChanged={setText}
+        onInputTextChanged={(texts) => setText(texts)}
         user={{
           _id: name,
           name: name,
@@ -170,54 +338,16 @@ const App = () => {
         renderSend={renderSend}
         renderAvatarOnTop={true}
         renderMessageVideo={renderMessageVideo}
+        renderUsernameOnMessage={true}
+        // renderBubble={renderBubble}
+        alwaysShowSend={true}
+        isTyping={typing}
+        placeholder={'Aa'}
       />
     </React.Fragment>
   );
 };
 export default App;
 const styles = StyleSheet.create({
-  actionContainer: {
-    width: 44,
-    height: 44,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginLeft: 4,
-    marginRight: 4,
-    marginBottom: 0,
-  },
-  containerToolbar: {
-    backgroundColor: '#222B45',
-    paddingTop: 6,
-  },
-  textInputBox: {
-    color: '#222B45',
-    backgroundColor: '#EDF1F7',
-    borderWidth: 1,
-    borderRadius: 5,
-    borderColor: '#E4E9F2',
-    paddingTop: 8.5,
-    paddingHorizontal: 12,
-    marginLeft: 0,
-  },
-  containerSend: {
-    width: 44,
-    height: 44,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginHorizontal: 4,
-  },
-  backgroundVideo: {
-    height: 300,
-  },
-  videoBox: {
-    height: 150,
-    width: 250,
-  },
-  videoStyle: {
-    left: 0,
-    top: 0,
-    height: 150,
-    width: 250,
-    borderRadius: 20,
-  },
+  ...themeStyle,
 });
