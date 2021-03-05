@@ -14,8 +14,9 @@ import ImagePicker from 'react-native-image-picker';
 import Video from 'react-native-video';
 import Fire from './Fire';
 import themeStyle from './styles';
+import NetInfo from '@react-native-community/netinfo';
 
-let socket = io('http://10.10.10.127:3000');
+let socket = io('http://10.10.10.172:3000');
 
 const App = () => {
   const [listChat, setListChat] = useState([]);
@@ -39,6 +40,14 @@ const App = () => {
     mediaType: 'mixed',
     videoQuality: 'low',
   };
+
+  const unsubscribe = NetInfo.addEventListener((state) => {
+    console.log('Connection type', state.type);
+    console.log('Is connected?', state.isConnected);
+  });
+
+  unsubscribe();
+
   useEffect(() => {
     socket.emit('callData', '');
     return () => {
@@ -152,7 +161,7 @@ const App = () => {
               socket.emit('chat image', messContent);
             })
             .catch((err) => {
-              console.log('err  ',err);
+              console.log('err  ', err);
             });
         } else if (response.type === 'video/mp4') {
           Fire.shared
@@ -173,7 +182,7 @@ const App = () => {
               socket.emit('chat image', messContent);
             })
             .catch((err) => {
-              console.log('err  ',err);
+              console.log('err  ', err);
             });
         } else {
           return;
@@ -209,7 +218,7 @@ const App = () => {
               socket.emit('chat image', messContent);
             })
             .catch((err) => {
-              console.log('err  ',err);
+              console.log('err  ', err);
             });
         } else if (response.type === 'video/mp4') {
           Fire.shared
@@ -230,7 +239,7 @@ const App = () => {
               socket.emit('chat image', messContent);
             })
             .catch((err) => {
-              console.log('err  ',err);
+              console.log('err  ', err);
             });
         } else {
           return;
@@ -318,7 +327,7 @@ const App = () => {
       );
     }
   };
- 
+
   return (
     <React.Fragment>
       <GiftedChat
