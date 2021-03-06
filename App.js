@@ -7,11 +7,11 @@ import {
   Composer,
   Send,
   InputToolbar,
+  Bubble,
 } from 'react-native-gifted-chat';
 import {Icon} from 'native-base';
 import io from 'socket.io-client';
 import ImagePicker from 'react-native-image-picker';
-import Video from 'react-native-video';
 import Fire from './Fire';
 import themeStyle from './styles';
 import NetInfo from '@react-native-community/netinfo';
@@ -23,10 +23,10 @@ const App = () => {
   const [text, setText] = useState('');
   const [name, setName] = useState('');
   const [typing, setTyping] = useState(false);
-  const [colorBubble, setcolorBubble] = useState({
-    background: '#6195ED',
-    text: 'white',
-  });
+  const [sessionID, setSessionID] = useState();
+
+  const [isNetwork, setIsNetwork] = useState(true);
+
   if (!name) {
     setName(Math.random());
   }
@@ -40,29 +40,51 @@ const App = () => {
     mediaType: 'mixed',
     videoQuality: 'low',
   };
-
-  const unsubscribe = NetInfo.addEventListener((state) => {
-    console.log('Connection type', state.type);
-    console.log('Is connected?', state.isConnected);
-  });
-
-  unsubscribe();
+  // check subcire network để set xem có pending không tránh re-render
 
   useEffect(() => {
-    socket.emit('callData', '');
-    return () => {
-      socket.off('callData');
-    };
+    NetInfo.addEventListener((state) => {
+      if (state.isConnected === false) {
+        setIsNetwork(false);
+      } else {
+        setIsNetwork(true);
+      }
+    });
   }, []);
 
   useEffect(() => {
+    var socketConnection = io.connect();
+    socketConnection.on('connect', function () {
+      setSessionID(socketConnection.socket.sessionid);
+    });
+  });
+
+  console.log('sessionID: ', socket.id);
+
+  useEffect(() => {
     socket.on('getData', (msg) => {
-      setListChat(msg);
+      let arr = msg.map(
+        ([
+          {
+            _id: idValue,
+            createdAt: createdAtValue,
+            text: textValue,
+            user: userValue,
+          },
+        ]) => ({
+          _id: idValue,
+          createdAt: createdAtValue,
+          text: textValue,
+          user: userValue,
+        }),
+      );
+      setListChat(arr);
     });
     return () => {
       socket.off('getData');
     };
   }, []);
+
   useEffect(() => {
     socket.on('chat message', (msg) => {
       setListChat([msg[0], ...listChat]);
@@ -105,12 +127,32 @@ const App = () => {
     };
   }, [listChat, name]);
 
+  const onSendMess = (messages) => {
+    if (isNetwork === false) {
+      setListChat([
+        ...listChat,
+        [
+          {
+            _id: messages[0].user.name,
+            createdAt: messages[0].createdAt,
+            text: messages[0].text,
+            user: messages[0].user,
+            pending: true,
+          },
+        ],
+      ]);
+    } else {
+      onSend(messages);
+    }
+  };
+
   const onSend = (messages) => {
     messages[0].user._id = name;
     messages[0].user.name = name;
     messages[0].user.avatar = 'https://placeimg.com/140/140/any';
     socket.emit('chat message', messages);
   };
+
   const sendLike = () => {
     let messContent = [
       {
@@ -268,19 +310,19 @@ const App = () => {
     );
   };
 
-  const renderMessageVideo = (props) => {
-    return (
-      <View style={{padding: 5}}>
-        <Video
-          resizeMode="contain"
-          useNativeControls
-          shouldPlay={true}
-          source={{uri: currentMessage.video}}
-          style={{height: 150, width: 200, borderRadius: 10}}
-        />
-      </View>
-    );
-  };
+  // const renderMessageVideo = (props) => {
+  //   return (
+  //     <View style={{padding: 5}}>
+  //       <Video
+  //         resizeMode="contain"
+  //         useNativeControls
+  //         shouldPlay={true}
+  //         source={{uri: currentMessage.video}}
+  //         style={{height: 150, width: 200, borderRadius: 10}}
+  //       />
+  //     </View>
+  //   );
+  // };
   const renderComposer = (props) => (
     <Composer {...props} textInputStyle={styles.textInputBox} />
   );
@@ -307,32 +349,27 @@ const App = () => {
         />
       </TouchableOpacity>
     );
-  const renderBubble = (props) => {
-    if (props.currentMessage.user._id === name) {
-      return (
-        <View
-          style={{...styles.bubleBox, backgroundColor: colorBubble.background}}>
-          <Text style={{...styles.bubleContent, color: colorBubble.text}}>
-            {props.currentMessage.text}
-          </Text>
-        </View>
-      );
-    } else {
-      return (
-        <View style={{...styles.bubleBox, backgroundColor: '#DBDEE1'}}>
-          <Text style={{...styles.bubleContent, color: 'black'}}>
-            {props.currentMessage.text}
-          </Text>
-        </View>
-      );
-    }
-  };
 
+  const renderBubble = (props) => {
+    return (
+      <View style={styles.bubbleContainer}>
+        <Icon name="warning" type="AntDesign" style={styles.offlineWarning} />
+        <Bubble
+          {...props}
+          wrapperStyle={{
+            right: {
+              backgroundColor: 'black',
+            },
+          }}
+        />
+      </View>
+    );
+  };
   return (
     <React.Fragment>
       <GiftedChat
         messages={listChat}
-        onSend={onSend}
+        onSend={onSendMess}
         text={text}
         onInputTextChanged={(texts) => setText(texts)}
         user={{
@@ -346,12 +383,11 @@ const App = () => {
         renderComposer={renderComposer}
         renderSend={renderSend}
         renderAvatarOnTop={true}
-        renderMessageVideo={renderMessageVideo}
+        // renderMessageVideo={renderMessageVideo}
         renderUsernameOnMessage={true}
-        // renderBubble={renderBubble}
-        alwaysShowSend={true}
         isTyping={typing}
         placeholder={'Aa'}
+        renderBubble={renderBubble}
       />
     </React.Fragment>
   );

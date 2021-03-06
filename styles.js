@@ -1,4 +1,5 @@
 import {StyleSheet} from 'react-native';
+import normalize from 'react-native-normalize';
 
 const themeStyles = StyleSheet.create({
   actionContainer: {
@@ -61,6 +62,16 @@ const themeStyles = StyleSheet.create({
     marginHorizontal: 8,
     fontSize: 20,
     color: '#646DE8',
+  },
+  bubbleContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+  },
+  offlineWarning: {
+    fontSize: 10,
+    color: 'orange',
+    marginLeft:normalize(320,'width'),
+    position:'absolute'
   },
 });
 
