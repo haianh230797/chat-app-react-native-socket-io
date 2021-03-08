@@ -21,15 +21,12 @@ let socket = io('http://10.10.10.172:3000');
 const App = () => {
   const [listChat, setListChat] = useState([]);
   const [text, setText] = useState('');
-  const [name, setName] = useState('');
+  const [name, setName] = useState('1234');
   const [typing, setTyping] = useState(false);
   const [sessionID, setSessionID] = useState();
 
   const [isNetwork, setIsNetwork] = useState(true);
 
-  if (!name) {
-    setName(Math.random());
-  }
   const options = {
     title: 'Select Avatar',
     customButtons: [{name: 'fb', title: 'Choose Photo from Facebook'}],
@@ -78,7 +75,16 @@ const App = () => {
           user: userValue,
         }),
       );
-      setListChat(arr);
+      const compare = (a, b) => {
+        if (a.createdAt < b.createdAt) {
+          return 1;
+        }
+        if (a.createdAt > b.createdAt) {
+          return -1;
+        }
+        return 0;
+      };
+      setListChat(arr.sort(compare));
     });
     return () => {
       socket.off('getData');
@@ -128,18 +134,16 @@ const App = () => {
   }, [listChat, name]);
 
   const onSendMess = (messages) => {
-    if (isNetwork === false) {
+    if (isNetwork === true) {
       setListChat([
         ...listChat,
-        [
-          {
-            _id: messages[0].user.name,
-            createdAt: messages[0].createdAt,
-            text: messages[0].text,
-            user: messages[0].user,
-            pending: true,
-          },
-        ],
+        {
+          _id: messages[0].user.name,
+          createdAt: messages[0].createdAt,
+          text: messages[0].text,
+          user: messages[0].user,
+          pending: true,
+        },
       ]);
     } else {
       onSend(messages);
